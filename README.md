@@ -28,6 +28,7 @@ npm install
 1. [Supabase](https://supabase.com/) でプロジェクトを作成
 2. SQL Editor で `supabase/schema.sql` を実行（テーブル作成）
 3. 続けて `supabase/seed.sql` を実行（初期データ 68 件を投入）
+4. （任意）`supabase/seed_additional.sql` を実行すると、言語・フレームワーク・ツール・SQL文の用語を追加できます（二重実行しても重複しません）
 
 ### 3. 環境変数の設定
 
