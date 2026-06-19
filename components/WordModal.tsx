@@ -3,18 +3,31 @@
 import { useRouter } from "next/navigation";
 import type { Word } from "@/types";
 import { categoryBadgeClass, categoryLabel } from "@/lib/categories";
+import { findRelated } from "@/lib/related";
 
 type Props = {
   word: Word | null;
+  // 関連語の抽出に使う全単語リスト
+  allWords: Word[];
   onClose: () => void;
   onDelete: (word: Word) => void;
+  // 関連語チップを押したときに表示単語を切り替えるためのコールバック
+  onSelectWord: (word: Word) => void;
 };
 
-// 単語の詳細を表示するモーダル。編集・削除ボタンを持つ。
-export default function WordModal({ word, onClose, onDelete }: Props) {
+// 単語の詳細を表示するモーダル。編集・削除ボタンと関連語を持つ。
+export default function WordModal({
+  word,
+  allWords,
+  onClose,
+  onDelete,
+  onSelectWord,
+}: Props) {
   const router = useRouter();
 
   if (!word) return null;
+
+  const related = findRelated(word, allWords);
 
   return (
     <div
@@ -64,6 +77,29 @@ export default function WordModal({ word, onClose, onDelete }: Props) {
               <p className="text-slate-700 whitespace-pre-wrap bg-slate-50 rounded-md p-3">
                 {word.example}
               </p>
+            </section>
+          )}
+
+          {related.length > 0 && (
+            <section className="mb-4">
+              <h3 className="text-xs font-semibold text-slate-500 mb-2">
+                関連する用語
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {related.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => onSelectWord(r)}
+                    title={r.description}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full hover:opacity-80 transition ${categoryBadgeClass(
+                      r.category,
+                    )}`}
+                  >
+                    {r.term}
+                  </button>
+                ))}
+              </div>
             </section>
           )}
 

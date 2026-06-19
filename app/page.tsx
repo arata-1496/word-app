@@ -138,8 +138,10 @@ export default function HomePage() {
 
       <WordModal
         word={selected}
+        allWords={words}
         onClose={() => setSelected(null)}
         onDelete={handleDelete}
+        onSelectWord={setSelected}
       />
     </div>
   );
