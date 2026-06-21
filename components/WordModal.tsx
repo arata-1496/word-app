@@ -31,11 +31,11 @@ export default function WordModal({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-black/50 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
+        className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto safe-pb"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 sm:p-6">
