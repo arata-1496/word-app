@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { doc, getDoc } from "firebase/firestore";
 import type { Word } from "@/types";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 import WordForm from "@/components/WordForm";
 
 export default function EditWordPage() {
@@ -17,24 +18,23 @@ export default function EditWordPage() {
 
   useEffect(() => {
     async function fetchWord() {
-      if (!isSupabaseConfigured) {
+      if (!isFirebaseConfigured) {
         setError(
-          "Supabaseの環境変数が設定されていません。.env.local を確認してください。",
+          "Firebaseの環境変数が設定されていません。.env.local を確認してください。",
         );
         setLoading(false);
         return;
       }
 
-      const { data, error: dbError } = await supabase
-        .from("words")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (dbError) {
-        setError(`データの取得に失敗しました: ${dbError.message}`);
-      } else {
-        setWord(data as Word);
+      try {
+        const snap = await getDoc(doc(db, "words", id));
+        if (snap.exists()) {
+          setWord({ id: snap.id, ...snap.data() } as Word);
+        } else {
+          setError("単語が見つかりませんでした。");
+        }
+      } catch (e: unknown) {
+        setError(`データの取得に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
       }
       setLoading(false);
     }

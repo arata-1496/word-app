@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { collection, getDocs } from "firebase/firestore";
 import type { Word } from "@/types";
 import { CATEGORIES, categoryBadgeClass, categoryLabel } from "@/lib/categories";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 
-// Fisher–Yates シャッフル（元配列は変更しない）
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -21,30 +21,26 @@ export default function QuizPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [category, setCategory] = useState<string>("all");
-  // シャッフルされた出題順（Word の配列）
   const [deck, setDeck] = useState<Word[]>([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // 単語を取得
   useEffect(() => {
     async function fetchWords() {
-      if (!isSupabaseConfigured) {
+      if (!isFirebaseConfigured) {
         setError(
-          "Supabaseの環境変数が設定されていません。.env.local を確認してください。",
+          "Firebaseの環境変数が設定されていません。.env.local を確認してください。",
         );
         setLoading(false);
         return;
       }
 
-      const { data, error: dbError } = await supabase
-        .from("words")
-        .select("*");
-
-      if (dbError) {
-        setError(`データの取得に失敗しました: ${dbError.message}`);
-      } else {
-        setWords((data as Word[]) ?? []);
+      try {
+        const snapshot = await getDocs(collection(db, "words"));
+        const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Word[];
+        setWords(data);
+      } catch (e: unknown) {
+        setError(`データの取得に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
       }
       setLoading(false);
     }
@@ -52,14 +48,12 @@ export default function QuizPage() {
     fetchWords();
   }, []);
 
-  // 選択カテゴリで絞った対象
   const pool = useMemo(() => {
     return category === "all"
       ? words
       : words.filter((w) => w.category === category);
   }, [words, category]);
 
-  // pool が変わったらデッキを作り直す（最初からシャッフルして出題）
   useEffect(() => {
     setDeck(shuffle(pool));
     setIndex(0);
@@ -120,12 +114,10 @@ export default function QuizPage() {
         )
       ) : (
         <>
-          {/* カウンタ */}
           <p className="text-center text-sm text-slate-500 mb-3">
             {index + 1} / {deck.length}
           </p>
 
-          {/* フリップカード */}
           <button
             type="button"
             onClick={() => setFlipped((f) => !f)}
@@ -165,7 +157,6 @@ export default function QuizPage() {
             )}
           </button>
 
-          {/* 操作ボタン */}
           <div className="flex items-center justify-between gap-3 mt-5">
             <button
               type="button"
