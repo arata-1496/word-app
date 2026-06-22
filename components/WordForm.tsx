@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 import type { Category, Word, WordInput } from "@/types";
 import { CATEGORIES } from "@/lib/categories";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 
 type Props = {
-  // 編集時は既存データを渡す。新規追加時は undefined。
   initial?: Word;
 };
 
-// 単語の追加・編集で共用するフォーム。
 export default function WordForm({ initial }: Props) {
   const router = useRouter();
   const isEdit = Boolean(initial);
@@ -33,14 +32,13 @@ export default function WordForm({ initial }: Props) {
     e.preventDefault();
     setError(null);
 
-    if (!isSupabaseConfigured) {
+    if (!isFirebaseConfigured) {
       setError(
-        "Supabaseの環境変数が設定されていません。.env.local を確認してください。",
+        "Firebaseの環境変数が設定されていません。.env.local を確認してください。",
       );
       return;
     }
 
-    // 必須項目のチェック
     if (!form.term.trim() || !form.description.trim()) {
       setError("用語名と説明は必須です。");
       return;
@@ -48,28 +46,29 @@ export default function WordForm({ initial }: Props) {
 
     setSubmitting(true);
 
-    // example は任意。空文字なら null として保存する。
     const payload = {
       category: form.category,
       term: form.term.trim(),
       description: form.description.trim(),
-      example: form.example.trim() ? form.example.trim() : null,
+      example: form.example.trim() || null,
     };
 
-    const { error: dbError } = isEdit
-      ? await supabase.from("words").update(payload).eq("id", initial!.id)
-      : await supabase.from("words").insert(payload);
-
-    setSubmitting(false);
-
-    if (dbError) {
-      setError(`保存に失敗しました: ${dbError.message}`);
-      return;
+    try {
+      if (isEdit) {
+        await updateDoc(doc(db, "words", initial!.id), payload);
+      } else {
+        await addDoc(collection(db, "words"), {
+          ...payload,
+          created_at: serverTimestamp(),
+        });
+      }
+      router.push("/");
+      router.refresh();
+    } catch (e: unknown) {
+      setError(`保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // 一覧ページへ戻る（最新データを反映）
-    router.push("/");
-    router.refresh();
+    setSubmitting(false);
   }
 
   return (

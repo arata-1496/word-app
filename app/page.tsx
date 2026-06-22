@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { collection, getDocs, deleteDoc, doc, orderBy, query } from "firebase/firestore";
 import type { Word } from "@/types";
 import { CATEGORIES } from "@/lib/categories";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 import WordCard from "@/components/WordCard";
 import WordModal from "@/components/WordModal";
 
@@ -17,11 +18,10 @@ export default function HomePage() {
   const [category, setCategory] = useState<string>("all");
   const [selected, setSelected] = useState<Word | null>(null);
 
-  // 単語一覧を取得する
   async function fetchWords() {
-    if (!isSupabaseConfigured) {
+    if (!isFirebaseConfigured) {
       setError(
-        "Supabaseの環境変数が設定されていません。.env.local に NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を設定してください。",
+        "Firebaseの環境変数が設定されていません。.env.local に NEXT_PUBLIC_FIREBASE_API_KEY などを設定してください。",
       );
       setLoading(false);
       return;
@@ -30,16 +30,14 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
 
-    const { data, error: dbError } = await supabase
-      .from("words")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (dbError) {
-      setError(`データの取得に失敗しました: ${dbError.message}`);
+    try {
+      const q = query(collection(db, "words"), orderBy("created_at", "desc"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Word[];
+      setWords(data);
+    } catch (e: unknown) {
+      setError(`データの取得に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
       setWords([]);
-    } else {
-      setWords((data as Word[]) ?? []);
     }
     setLoading(false);
   }
@@ -48,7 +46,6 @@ export default function HomePage() {
     fetchWords();
   }, []);
 
-  // キーワード・カテゴリでの絞り込み
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     return words.filter((w) => {
@@ -61,22 +58,16 @@ export default function HomePage() {
     });
   }, [words, keyword, category]);
 
-  // 削除処理（確認ダイアログ → DELETE）
   async function handleDelete(word: Word) {
     if (!confirm(`「${word.term}」を削除します。よろしいですか？`)) return;
 
-    const { error: dbError } = await supabase
-      .from("words")
-      .delete()
-      .eq("id", word.id);
-
-    if (dbError) {
-      alert(`削除に失敗しました: ${dbError.message}`);
-      return;
+    try {
+      await deleteDoc(doc(db, "words", word.id));
+      setSelected(null);
+      setWords((prev) => prev.filter((w) => w.id !== word.id));
+    } catch (e: unknown) {
+      alert(`削除に失敗しました: ${e instanceof Error ? e.message : String(e)}`);
     }
-
-    setSelected(null);
-    setWords((prev) => prev.filter((w) => w.id !== word.id));
   }
 
   return (
@@ -91,7 +82,6 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* 検索・フィルタ */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <input
           type="text"
